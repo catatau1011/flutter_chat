@@ -1,6 +1,14 @@
+import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:flutter_chat/helper/helper_function.dart";
+import "package:flutter_chat/pages/home_page.dart";
 import "package:flutter_chat/pages/register_page.dart";
+import "package:flutter_chat/service/database_service.dart";
+import "package:flutter_chat/widgets/widgets.dart";
+
+import "../service/auth_service.dart";
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -13,11 +21,15 @@ class _LoginPageState extends State<LoginPage> {
   final formKey= GlobalKey<FormState>();
   String email = "";
   String password = "";
+  bool _isLoading = false;
+  AuthService authService = AuthService();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
+      body: _isLoading ? Center(child: CircularProgressIndicator(color:Theme.of(context).primaryColor,),):
+      SingleChildScrollView(
         child:  Padding(
           padding: const EdgeInsets.symmetric(vertical: 80,horizontal: 20),
           child: Form(
@@ -120,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
                       )
                     ),
                     onPressed: () {
-                      //logIn();
+                      logIn();
                     },
                     child: const Center(
                       child: Text("Login",style: TextStyle(
@@ -153,5 +165,27 @@ class _LoginPageState extends State<LoginPage> {
         )),),
       ),
     );
+  }
+
+  void logIn() async{
+    if(formKey.currentState!.validate()){
+        setState(() {
+          _isLoading=true;
+        });
+        await  authService.loginWithEmailAndPassword(email, password).then((value) async{
+         if(value == true){
+           QuerySnapshot snapshot = await DatabaseService(uid: FirebaseAuth.instance.currentUser!.uid).gettingUserData(email);
+           await HelperFunctions.storeUserLoginStatus(true);
+           await HelperFunctions.storeEmail(email);
+           await HelperFunctions.storeUserName(snapshot.docs[0]["fullName"]);
+           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const HomePage()));
+         }else{
+           showSnackbar(context, Colors.red, value);
+           setState(() {
+             _isLoading = false;
+           });
+         }
+        });
+    }
   }
 }
